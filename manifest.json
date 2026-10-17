@@ -1,0 +1,25 @@
+{
+  "name": "SK BUILDERS & PROPERTY CONSULTANT",
+  "short_name": "SK BUILDERS",
+  "description": "SK BUILDERS & PROPERTY CONSULTANT - Builder & Property Consultant Admin Portal",
+  "start_url": "/#admin",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#09090b",
+  "theme_color": "#09090b",
+  "icons": [
+    {
+      "src": "/logo/sk-builders-logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo/sk-builders-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
