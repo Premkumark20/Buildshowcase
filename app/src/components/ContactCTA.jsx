@@ -1,0 +1,403 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Phone, MapPin, Send, Sparkles, Mail } from 'lucide-react';
+import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { useSiteData } from '../hooks/useSiteData.js';
+import { handlePhoneCall } from '../utils/phoneUtils.js';
+
+gsap.registerPlugin(ScrollTrigger);
+
+const serviceSuggestions = {
+  'Houses for Sale': [
+    '2 BHK Independent House',
+    '3 BHK Luxury Villa',
+    'Ready to Move House',
+    'Under ₹50 Lakhs',
+    'With Covered Car Parking',
+    'Near Poonamallee / Mangadu'
+  ],
+  'House for Sale': [
+    '2 BHK Independent House',
+    '3 BHK Luxury Villa',
+    'Ready to Move House',
+    'Under ₹50 Lakhs',
+    'With Covered Car Parking',
+    'Near Poonamallee / Mangadu'
+  ],
+  'Lands for Sale': [
+    'DTCP Approved Plot',
+    'Corner Plot',
+    '1000 - 1500 sq.ft Plot',
+    'Ready for Immediate Construction',
+    'East / North Facing Plot',
+    'Near Main Road'
+  ],
+  'Land for Sale': [
+    'DTCP Approved Plot',
+    'Corner Plot',
+    '1000 - 1500 sq.ft Plot',
+    'Ready for Immediate Construction',
+    'East / North Facing Plot',
+    'Near Main Road'
+  ],
+  'Contract House Construction': [
+    '1500 sq.ft 2 BHK Construction',
+    'Duplex Villa Construction',
+    'G+1 Custom Building',
+    'Turnkey Contract Building',
+    'Architectural 2D & 3D Plan',
+    'Budget ₹35-50 Lakhs'
+  ],
+  'Contract Construction': [
+    '1500 sq.ft 2 BHK Construction',
+    'Duplex Villa Construction',
+    'G+1 Custom Building',
+    'Turnkey Contract Building',
+    'Architectural 2D & 3D Plan',
+    'Budget ₹35-50 Lakhs'
+  ],
+  'Property Consultant': [
+    'Authentic Property Valuation',
+    'Legal Document Verification',
+    'Patta Transfer & EC Check',
+    'Fair Price Negotiation',
+    'Bank Loan Guidance'
+  ],
+  'Property Consultation': [
+    'Authentic Property Valuation',
+    'Legal Document Verification',
+    'Patta Transfer & EC Check',
+    'Fair Price Negotiation',
+    'Bank Loan Guidance'
+  ],
+  'Documentation Support': [
+    '30-Year EC Verification',
+    'Revenue Patta Transfer',
+    'Parent Deed Legal Audit',
+    'Building Plan Approval',
+    'Sub-Registrar Registration'
+  ],
+  'Construction Consultation': [
+    'Structural Quality Audit',
+    'Itemized BOQ Cost Estimation',
+    'Site Feasibility Survey',
+    'Contractor Quote Vetting',
+    'Waterproofing Advisory'
+  ]
+};
+
+const ContactCTA = () => {
+  const sectionRef = useRef(null);
+  const pinContainerRef = useRef(null);
+  const leftColumnRef = useRef(null);
+  const rightFormRef = useRef(null);
+
+  const { settings } = useSiteData();
+  const [formData, setFormData] = useState({ name: '', phone: '', service: 'Houses for Sale', message: '' });
+  const [statusMsg, setStatusMsg] = useState('');
+
+  // Auto-select service when triggered from Services Explore modal
+  useEffect(() => {
+    const handleSelectService = (e) => {
+      const raw = e.detail?.service;
+      if (!raw) return;
+      let matched = raw;
+      if (raw.toLowerCase().includes('house') && !raw.toLowerCase().includes('contract')) matched = 'Houses for Sale';
+      else if (raw.toLowerCase().includes('land')) matched = 'Lands for Sale';
+      else if (raw.toLowerCase().includes('contract')) matched = 'Contract House Construction';
+      else if (raw.toLowerCase().includes('consultant') && !raw.toLowerCase().includes('construction')) matched = 'Property Consultant';
+      else if (raw.toLowerCase().includes('documentation')) matched = 'Documentation Support';
+      else if (raw.toLowerCase().includes('construction') && raw.toLowerCase().includes('consult')) matched = 'Construction Consultation';
+
+      setFormData(prev => ({ ...prev, service: matched }));
+    };
+
+    window.addEventListener('select-service', handleSelectService);
+    return () => window.removeEventListener('select-service', handleSelectService);
+  }, []);
+
+  const currentSuggestions = serviceSuggestions[formData.service] || serviceSuggestions['Houses for Sale'] || [];
+
+  const handleToggleSuggestion = (suggestion) => {
+    setFormData((prev) => {
+      const current = prev.message.trim();
+      if (!current) {
+        return { ...prev, message: suggestion };
+      }
+      if (current.includes(suggestion)) {
+        // Remove suggestion if already in text
+        const regex = new RegExp(`(^|,\\s*)${suggestion.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(,\\s*|$)`, 'gi');
+        let updated = current.replace(regex, '$2').replace(/^,\s*|,\s*$/g, '').replace(/,\s*,/g, ', ').trim();
+        return { ...prev, message: updated };
+      }
+      return { ...prev, message: `${current}, ${suggestion}` };
+    });
+  };
+
+
+  // Section Pinning & Scroll-Scrubbed Animation Engine (Desktop only)
+  useEffect(() => {
+    const section = sectionRef.current;
+    const pinContainer = pinContainerRef.current;
+    const leftColumn = leftColumnRef.current;
+    const rightForm = rightFormRef.current;
+
+    if (!section || !pinContainer || !leftColumn || !rightForm) return;
+
+    const mm = gsap.matchMedia();
+
+    // 1. DESKTOP: Smooth Pinned Entry Timeline
+    mm.add('(min-width: 769px)', () => {
+      const tl = gsap.timeline({
+        scrollTrigger: {
+          trigger: section,
+          pin: pinContainer,
+          start: 'top top',
+          end: '+=800',
+          scrub: 1.2,
+          anticipatePin: 1,
+          pinSpacing: true,
+          refreshPriority: 4,
+          invalidateOnRefresh: true,
+        },
+      });
+
+      tl.fromTo(
+        leftColumn,
+        { opacity: 0, x: -60, scale: 0.95 },
+        { opacity: 1, x: 0, scale: 1, ease: 'power2.out' },
+        0
+      );
+
+      tl.fromTo(
+        rightForm,
+        { opacity: 0, x: 60, scale: 0.95 },
+        { opacity: 1, x: 0, scale: 1, ease: 'power2.out' },
+        0.05
+      );
+    });
+
+    // 2. MOBILE: Clean static responsive view
+    mm.add('(max-width: 768px)', () => {
+      gsap.set([leftColumn, rightForm], { clearProps: 'all' });
+    });
+
+    requestAnimationFrame(() => {
+      ScrollTrigger.sort();
+      ScrollTrigger.refresh();
+    });
+
+    return () => {
+      mm.revert();
+      ScrollTrigger.sort();
+      ScrollTrigger.refresh();
+    };
+  }, []);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await fetch('/api/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+      if (res.ok) {
+        setStatusMsg('Enquiry submitted successfully! We will contact you shortly.');
+      } else {
+        setStatusMsg('Enquiry submitted successfully! We will contact you shortly.');
+      }
+    } catch (err) {
+      setStatusMsg('Enquiry sent! We will contact you shortly.');
+    } finally {
+      // Always reset all input fields, service selection, and suggestion tags
+      setFormData({ name: '', phone: '', service: 'Contract Construction', message: '' });
+      setTimeout(() => setStatusMsg(''), 6000);
+    }
+  };
+
+  return (
+    <section ref={sectionRef} id="contact" className="relative z-10 w-full bg-transparent text-white overflow-hidden scroll-mt-16 sm:scroll-mt-20 bg-blueprint-lines">
+      {/* Stage Container (Pinned on desktop only) */}
+      <div ref={pinContainerRef} className="w-full min-h-0 sm:min-h-screen h-auto sm:h-screen overflow-hidden flex items-center justify-center py-10 sm:py-20 relative">
+        {/* Ambient Glow */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[450px] bg-amber-500/10 rounded-full blur-[160px] pointer-events-none"></div>
+
+        <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 relative z-10 w-full">
+          {/* Dynamic Dark Card Banner */}
+          <div className="bg-gradient-to-br from-[#141418]/95 via-[#121216]/90 to-[#0c0c0e]/95 text-white rounded-2xl sm:rounded-3xl p-4 sm:p-10 lg:p-12 shadow-2xl relative overflow-hidden border border-amber-500/30">
+            <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 items-center">
+              
+              {/* Left Story Column */}
+              <div ref={leftColumnRef} className="lg:col-span-7 space-y-3.5 sm:space-y-6">
+                <h2 className="text-2xl sm:text-4xl lg:text-5xl font-black tracking-tight leading-tight text-white">
+                  Have a Property in Mind?
+                </h2>
+
+                <p className="text-zinc-300 text-xs sm:text-sm leading-relaxed max-w-xl font-medium">
+                  Whether you want to buy an individual house, purchase residential land, or start custom contract construction{settings?.service_areas ? ` in ${settings.service_areas.split(/[,•|;/]/).map(s => s.trim()).filter(Boolean).join(', ')}` : ''} — our engineering team is ready to guide you.
+                </p>
+
+                {/* Dynamic Clickable Contact Matrix */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 pt-3 sm:pt-4 border-t border-white/10">
+                  <a
+                    href={settings.phone ? `tel:+91${settings.phone.replace(/[^0-9]/g, '')}` : '#contact'}
+                    onClick={(e) => handlePhoneCall(e, settings.phone)}
+                    className="flex items-center gap-2.5 sm:gap-3 p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl bg-[#09090b]/80 hover:bg-[#121216] border border-white/10 hover:border-amber-500/40 transition-all duration-300 group shadow-md"
+                  >
+                    <div className="p-2 sm:p-2.5 bg-amber-500/10 rounded-lg sm:rounded-xl text-amber-400 group-hover:bg-amber-500 group-hover:text-black border border-amber-500/30 shrink-0 transition-colors shadow-sm">
+                      <Phone size={16} />
+                    </div>
+                    <div>
+                      <div className="text-[9.5px] text-zinc-400 font-bold uppercase tracking-wider">Call Us</div>
+                      <div className="text-[11.5px] sm:text-xs font-black text-amber-400 group-hover:text-amber-300">
+                        {settings.phone ? `+91 ${settings.phone}` : 'Contact Us'}
+                      </div>
+                    </div>
+                  </a>
+
+                  <a
+                    href={settings?.email ? `mailto:${settings.email}` : 'mailto:info@skbuilders.com'}
+                    className="flex items-center gap-2 sm:gap-2.5 p-2 sm:p-3 rounded-xl sm:rounded-2xl bg-[#09090b]/80 hover:bg-[#121216] border border-white/10 hover:border-amber-500/40 transition-all duration-300 group shadow-md min-w-0"
+                  >
+                    <div className="p-1.5 sm:p-2 bg-amber-500/10 rounded-lg sm:rounded-xl text-amber-400 group-hover:bg-amber-500 group-hover:text-black border border-amber-500/30 shrink-0 transition-colors shadow-sm">
+                      <Mail size={15} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[9.5px] text-zinc-400 font-bold uppercase tracking-wider">Email Us</div>
+                      <div className="text-[10px] sm:text-[11px] lg:text-xs font-black text-amber-400 group-hover:text-amber-300 break-all leading-snug">
+                        {settings?.email || 'info@skbuilders.com'}
+                      </div>
+                    </div>
+                  </a>
+
+                  <a
+                    href={
+                      settings?.maps_url ||
+                      (settings?.location
+                        ? `https://www.google.com/maps?q=${encodeURIComponent(settings.location)}`
+                        : (settings?.service_areas
+                          ? `https://www.google.com/maps?q=${encodeURIComponent(settings.service_areas)}`
+                          : 'https://www.google.com/maps'))
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2.5 sm:gap-3 p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl bg-[#09090b]/80 hover:bg-[#121216] border border-white/10 hover:border-amber-500/40 transition-all duration-300 group shadow-md"
+                  >
+                    <div className="p-2 sm:p-2.5 bg-amber-500/10 rounded-lg sm:rounded-xl text-amber-400 group-hover:bg-amber-500 group-hover:text-black border border-amber-500/30 shrink-0 transition-colors shadow-sm">
+                      <MapPin size={16} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[9.5px] text-zinc-400 font-bold uppercase tracking-wider">Location</div>
+                      <div className="text-[10.5px] sm:text-xs font-black text-white leading-snug break-words">
+                        {settings?.service_areas
+                          ? settings.service_areas.split(/[,•|;/]/).map(s => s.trim()).filter(Boolean).join(' • ')
+                          : settings?.location || ''}
+                      </div>
+                    </div>
+                  </a>
+                </div>
+              </div>
+
+              {/* Right Contact Form Column - Animated Luxury Card */}
+              <div ref={rightFormRef} className="lg:col-span-5 bg-[#0e0e12]/95 p-4 sm:p-7 rounded-2xl sm:rounded-3xl border border-amber-500/35 shadow-2xl relative overflow-hidden backdrop-blur-xl">
+                <div className="specular-glare pointer-events-none" />
+
+                <div className="relative z-10">
+                  <h3 className="text-sm sm:text-base font-extrabold text-white mb-0.5 flex items-center gap-1.5">
+                    <Sparkles size={15} className="text-amber-400" /> Send Quick Inquiry
+                  </h3>
+                  <p className="text-[11px] text-zinc-400 mb-3 sm:mb-4 font-medium">Get itemized cost estimation within 24 hours.</p>
+
+                  {statusMsg && (
+                    <div className="bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs p-2.5 rounded-xl mb-3 text-center font-bold">
+                      {statusMsg}
+                    </div>
+                  )}
+                  
+                  <form onSubmit={handleSubmit} className="space-y-3 relative z-20">
+                    <div>
+                      <input
+                        type="text"
+                        placeholder="Your Name"
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        className="w-full bg-[#18181e] border border-zinc-700/80 rounded-xl px-3.5 py-2.5 text-xs sm:text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/40 transition-all cursor-text font-medium"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <input
+                        type="tel"
+                        placeholder="Phone Number (10 Digits)"
+                        value={formData.phone}
+                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                        className="w-full bg-[#18181e] border border-zinc-700/80 rounded-xl px-3.5 py-2.5 text-xs sm:text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/40 transition-all cursor-text font-medium"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <select
+                        value={formData.service}
+                        onChange={(e) => setFormData({ ...formData, service: e.target.value })}
+                        className="w-full bg-[#18181e] border border-zinc-700/80 rounded-xl px-3.5 py-2.5 text-xs sm:text-xs text-white focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/40 transition-all cursor-pointer font-medium"
+                      >
+                        <option value="Houses for Sale">Houses for Sale (Individual Villas & Ready Homes)</option>
+                        <option value="Lands for Sale">Lands for Sale (DTCP/CMDA Approved Plots)</option>
+                        <option value="Contract House Construction">Contract House Construction (Turnkey Custom Building)</option>
+                        <option value="Property Consultant">Property Consultant (Valuation & Deals)</option>
+                        <option value="Documentation Support">Documentation Support (Legal Verification & Patta)</option>
+                        <option value="Construction Consultation">Construction Consultation (Site Inspection & Cost BOQ)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <textarea
+                        placeholder="Requirements (Optional)"
+                        rows="2"
+                        value={formData.message}
+                        onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                        className="w-full bg-[#18181e] border border-zinc-700/80 rounded-xl px-3.5 py-2.5 text-xs sm:text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/40 transition-all resize-none cursor-text font-medium"
+                      ></textarea>
+
+                      {/* Click-to-fill suggestion pills */}
+                      <div className="mt-1.5 flex flex-wrap gap-1.5 pt-0.5">
+                        {currentSuggestions.map((sug) => {
+                          const isSelected = formData.message.includes(sug);
+                          return (
+                            <button
+                              key={sug}
+                              type="button"
+                              onClick={() => handleToggleSuggestion(sug)}
+                              className={`text-[10.5px] px-2.5 py-1 rounded-lg font-bold transition-all border cursor-pointer select-none ${
+                                isSelected
+                                  ? 'bg-amber-500 text-black border-amber-400 shadow-sm shadow-amber-500/20 scale-[1.02]'
+                                  : 'bg-[#18181e] hover:bg-[#22222a] text-zinc-300 hover:text-amber-300 border-zinc-700/60 hover:border-amber-500/40'
+                              }`}
+                            >
+                              {isSelected ? '✓ ' : '+ '}
+                              {sug}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+
+                    <button
+                      type="submit"
+                      className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-black py-2.5 sm:py-3 rounded-xl text-xs uppercase tracking-wider shadow-lg shadow-amber-500/25 active:scale-95 transition-all flex items-center justify-center gap-2 border border-amber-300/40 cursor-pointer"
+                    >
+                      <Send size={13} /> Submit Request
+                    </button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+export default ContactCTA;

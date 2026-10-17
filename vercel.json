@@ -1,0 +1,57 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "ignoreCommand": "bash -c 'if [ \"$VERCEL_GIT_COMMIT_REF\" = \"gh-pages\" ]; then exit 0; else exit 1; fi'",
+  "git": {
+    "deploymentEnabled": {
+      "main": true
+    }
+  },
+  "github": {
+    "silent": true
+  },
+  "functions": {
+    "api/index.js": {
+      "includeFiles": "app/server/**"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/manifest-main.json",
+      "destination": "/api"
+    },
+    {
+      "source": "/manifest-admin.json",
+      "destination": "/api"
+    },
+    {
+      "source": "/manifest.json",
+      "destination": "/api"
+    },
+    {
+      "source": "/api/:path*",
+      "destination": "/api"
+    },
+    {
+      "source": "/uploads/:path*",
+      "destination": "/api"
+    },
+    {
+      "source": "/logo/:path*",
+      "destination": "/api"
+    },
+    {
+      "source": "/videos/:path*",
+      "destination": "/api"
+    },
+    {
+      "source": "/frames/:path*",
+      "destination": "/api"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
+

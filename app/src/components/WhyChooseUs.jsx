@@ -1,0 +1,232 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { CheckCircle2, Quote } from 'lucide-react';
+import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { useSiteData } from '../hooks/useSiteData.js';
+
+gsap.registerPlugin(ScrollTrigger);
+
+const reasons = [
+  '15+ Years of Experience',
+  'Quality Construction',
+  'Transparent Pricing',
+  'Timely Delivery',
+  'Legal & Documentation Support',
+  'Personalized Service',
+  'Trusted by Many Families'
+];
+
+const WhyChooseUs = () => {
+  const sectionRef = useRef(null);
+  const pinContainerRef = useRef(null);
+  const leftCardRef = useRef(null);
+  const rightCardRef = useRef(null);
+  const reasonsContainerRef = useRef(null);
+
+  const { testimonials: dbTestimonials } = useSiteData();
+  const safeTestimonials = Array.isArray(dbTestimonials) ? dbTestimonials : [];
+
+  const [activeTestimonial, setActiveTestimonial] = useState(0);
+
+  // Auto-change reviews every 4.5 seconds
+  useEffect(() => {
+    if (safeTestimonials.length <= 1) return;
+    const timer = setInterval(() => {
+      setActiveTestimonial((prev) => (prev + 1) % safeTestimonials.length);
+    }, 4500);
+    return () => clearInterval(timer);
+  }, [safeTestimonials.length]);
+
+  // Section Pinning & Scroll-Scrubbed Animation Engine (Desktop only)
+  useEffect(() => {
+    const section = sectionRef.current;
+    const pinContainer = pinContainerRef.current;
+    const leftCard = leftCardRef.current;
+    const rightCard = rightCardRef.current;
+    const reasonsContainer = reasonsContainerRef.current;
+
+    if (!section || !pinContainer || !leftCard || !rightCard) return;
+
+    const mm = gsap.matchMedia();
+
+    // 1. DESKTOP: Pinning & Smooth Scroll-Scrubbed Stagger
+    mm.add('(min-width: 769px)', () => {
+      const reasonPills = reasonsContainer?.children ? Array.from(reasonsContainer.children) : [];
+
+      const tl = gsap.timeline({
+        scrollTrigger: {
+          trigger: section,
+          pin: pinContainer,
+          start: 'top top',
+          end: '+=2400',
+          scrub: 1.5,
+          anticipatePin: 1,
+          pinSpacing: true,
+          refreshPriority: 9,
+          invalidateOnRefresh: true,
+        },
+      });
+
+      // Entry of both 3D cards
+      tl.fromTo(
+        leftCard,
+        { x: -100, opacity: 0, rotateY: 20, scale: 0.9 },
+        { x: 0, opacity: 1, rotateY: 0, scale: 1, ease: 'power2.out' },
+        0
+      );
+
+      tl.fromTo(
+        rightCard,
+        { x: 100, opacity: 0, rotateY: -20, scale: 0.9 },
+        { x: 0, opacity: 1, rotateY: 0, scale: 1, ease: 'power2.out' },
+        0
+      );
+
+      // Sequential stagger of reason checkmark pills on scroll
+      if (reasonPills.length > 0) {
+        tl.fromTo(
+          reasonPills,
+          { opacity: 0, y: 25, scale: 0.92 },
+          { opacity: 1, y: 0, scale: 1, stagger: 0.08, ease: 'power2.out' },
+          0.3
+        );
+      }
+    });
+
+    // 2. MOBILE: Simple static view
+    mm.add('(max-width: 768px)', () => {
+      gsap.set([leftCard, rightCard], { x: 0, y: 0, opacity: 1, scale: 1, rotateY: 0, clearProps: 'all' });
+      if (reasonsContainer?.children) {
+        gsap.set(Array.from(reasonsContainer.children), { opacity: 1, y: 0, scale: 1, clearProps: 'all' });
+      }
+    });
+
+    return () => {
+      mm.revert();
+      ScrollTrigger.sort();
+      ScrollTrigger.refresh();
+    };
+  }, []);
+
+  return (
+    <section ref={sectionRef} id="about" className="relative z-10 w-full bg-transparent text-white overflow-hidden scroll-mt-16 sm:scroll-mt-20">
+      {/* Scroll Container (Pinned on desktop only) */}
+      <div ref={pinContainerRef} className="w-full min-h-0 sm:min-h-screen h-auto sm:h-screen overflow-hidden flex items-center justify-center py-10 sm:py-20 relative">
+        {/* Background Ambient Glow */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[400px] bg-amber-500/10 rounded-full blur-[160px] pointer-events-none"></div>
+
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-8 items-stretch">
+            
+            {/* Left Main Card: Why Choose Us? */}
+            <div
+              ref={leftCardRef}
+              className="lg:col-span-7 gold-specular-card rounded-2xl sm:rounded-3xl p-4 sm:p-8 border border-white/15 shadow-2xl relative overflow-hidden group min-h-[320px] sm:min-h-[360px] flex flex-col justify-between"
+            >
+              {/* Dynamic Specular Glare Layer */}
+              <div className="specular-glare" />
+
+              {/* Background Architectural House Sketch Image Container */}
+              <div className="absolute inset-0 w-full h-full z-0 overflow-hidden pointer-events-none rounded-2xl sm:rounded-3xl">
+                <img
+                  src="/house/house-sketch.png"
+                  alt="Architectural House Sketch Background"
+                  className="w-full h-full object-cover object-right opacity-90 sm:opacity-95 group-hover:scale-105 transition-transform duration-700 filter brightness-125 contrast-125"
+                />
+                {/* Subtle scrim: dark on left for text legibility, transparent on right so the house sketch is fully displayed */}
+                <div className="absolute inset-0 bg-gradient-to-r from-[#09090b]/90 via-[#09090b]/45 to-transparent sm:from-[#09090b]/80 sm:via-[#09090b]/55 sm:to-[#09090b]/30 pointer-events-none"></div>
+                <div className="absolute inset-0 bg-gradient-to-t from-[#09090b]/40 via-transparent to-transparent sm:from-[#09090b]/70 pointer-events-none"></div>
+              </div>
+
+              {/* Foreground Content Overlay */}
+              <div className="relative z-10 w-full max-w-lg">
+                <h2 className="text-xl sm:text-3xl font-black text-white mb-3 sm:mb-6 tracking-tight">
+                  Why Choose Us?
+                </h2>
+
+                <div
+                  ref={reasonsContainerRef}
+                  className="flex flex-col items-start gap-2 sm:grid sm:grid-cols-2 sm:gap-3.5"
+                >
+                  {reasons.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="w-fit sm:w-auto max-w-fit sm:max-w-none inline-flex sm:flex items-center gap-2 sm:gap-3 bg-[#09090b]/85 sm:bg-[#09090b]/80 px-2.5 py-1.5 sm:p-3 rounded-lg sm:rounded-xl border border-white/15 shadow-md hover:border-amber-500/40 hover:bg-[#121216]/80 backdrop-blur-sm transition-all duration-300"
+                    >
+                      <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0">
+                        <CheckCircle2 size={12} className="text-amber-400" />
+                      </div>
+                      <span className="text-[11px] sm:text-sm font-extrabold text-zinc-100 leading-tight whitespace-nowrap sm:whitespace-normal">
+                        {item}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Right Main Card: What Our Clients Say */}
+            <div
+              ref={rightCardRef}
+              className="lg:col-span-5 gold-specular-card rounded-2xl sm:rounded-3xl p-3.5 sm:p-8 border border-white/15 shadow-2xl flex flex-col justify-between transition-all duration-300 relative min-h-[220px] sm:min-h-[360px]"
+            >
+              {/* Dynamic Specular Glare Layer */}
+              <div className="specular-glare" />
+
+              <div className="relative z-10">
+                <h2 className="text-lg sm:text-3xl font-black text-white mb-2.5 sm:mb-6">
+                  What Our Clients Say
+                </h2>
+
+                {safeTestimonials.length === 0 ? (
+                  <div className="bg-[#18181c]/85 p-5 sm:p-8 rounded-xl sm:rounded-2xl border border-white/10 text-center mt-1 sm:mt-4">
+                    <p className="text-zinc-400 text-xs sm:text-sm">Client testimonials will appear here.</p>
+                  </div>
+                ) : (
+                  <div className="bg-[#18181c]/85 p-3 sm:p-6 rounded-xl sm:rounded-2xl border border-white/10 shadow-inner relative mt-1 sm:mt-4 group-hover:border-amber-500/30 transition-all">
+                    <div className="flex items-center justify-between mb-2.5 sm:mb-4">
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center shadow-md">
+                        <Quote size={16} className="text-amber-400" />
+                      </div>
+                      {safeTestimonials[activeTestimonial % safeTestimonials.length]?.rating && (
+                        <span className="text-amber-400 text-xs sm:text-sm tracking-widest font-black">
+                          {'★'.repeat(Math.min(5, Math.max(1, safeTestimonials[activeTestimonial % safeTestimonials.length].rating || 5)))}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-zinc-200 text-xs sm:text-base italic leading-relaxed mb-2.5 sm:mb-4 font-medium min-h-[50px] sm:min-h-[72px] transition-all duration-500">
+                      "{safeTestimonials[activeTestimonial % safeTestimonials.length]?.quote}"
+                    </p>
+                    <div className="font-extrabold text-[11px] sm:text-sm text-amber-400 transition-all duration-500">
+                      – {safeTestimonials[activeTestimonial % safeTestimonials.length]?.client_name || 'Happy Client'}
+                      {safeTestimonials[activeTestimonial % safeTestimonials.length]?.location ? `, ${safeTestimonials[activeTestimonial % safeTestimonials.length].location}` : ''}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Interactive Pagination Dots */}
+              <div className="flex justify-center items-center gap-2 mt-4 sm:mt-8 relative z-10 translate-z-20">
+                {safeTestimonials.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setActiveTestimonial(i)}
+                    className={`transition-all duration-300 rounded-full cursor-pointer ${
+                      activeTestimonial % safeTestimonials.length === i
+                        ? 'w-6 h-2.5 bg-gradient-to-r from-amber-400 to-amber-600 shadow-md shadow-amber-500/30'
+                        : 'w-2.5 h-2.5 bg-white/20 hover:bg-white/40'
+                    }`}
+                    aria-label={`Testimonial ${i + 1}`}
+                  />
+                ))}
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+export default WhyChooseUs;

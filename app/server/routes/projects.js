@@ -1,0 +1,496 @@
+import express from 'express';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+import db from '../database/database.js';
+import { uploadFileToBlob, deleteFileFromBlob } from '../utils/blobStorage.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const projectRoot = path.join(__dirname, '../../..');
+const uploadsDir = process.env.VERCEL ? '/tmp/uploads/images/projects' : path.join(projectRoot, 'uploads/images/projects');
+try { fs.mkdirSync(uploadsDir, { recursive: true }); } catch (e) {}
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadsDir),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname) || '.jpg';
+    cb(null, `proj-${Date.now()}-${Math.round(Math.random() * 1e4)}${ext}`);
+  }
+});
+const upload = multer({ storage });
+const router = express.Router();
+
+// Auto-generate SK-PROJECT-xxx project_id
+const generateProjectId = (cb) => {
+  db.get("SELECT COUNT(*) as count FROM projects", [], (err, row) => {
+    const nextNum = ((row?.count || 0) + 1).toString().padStart(3, '0');
+    cb(`SK-PROJECT-${nextNum}`);
+  });
+};
+
+// GET all projects
+router.get('/', (req, res) => {
+  const { status, project_type, location, published, featured, search } = req.query;
+  let sql = 'SELECT * FROM projects WHERE 1=1';
+  const params = [];
+
+  if (published !== undefined && published !== '') {
+    sql += ' AND published = ?';
+    params.push(published === 'true' || published === '1' ? 1 : 0);
+  }
+
+  if (featured !== undefined && featured !== '') {
+    sql += ' AND featured = ?';
+    params.push(featured === 'true' || featured === '1' ? 1 : 0);
+  }
+
+  if (location && location !== 'All') {
+    sql += ' AND location = ?';
+    params.push(location);
+  }
+
+  if (status && status !== 'All') {
+    sql += ' AND status = ?';
+    params.push(status);
+  }
+
+  if (project_type && project_type !== 'All') {
+    sql += ' AND project_type = ?';
+    params.push(project_type);
+  }
+
+  if (search && search.trim()) {
+    sql += ' AND (title LIKE ? OR name LIKE ? OR location LIKE ? OR description LIKE ? OR project_id LIKE ?)';
+    const term = `%${search.trim()}%`;
+    params.push(term, term, term, term, term);
+  }
+
+  sql += ' ORDER BY id DESC';
+
+  db.all(sql, params, (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!rows || rows.length === 0) return res.json({ projects: [] });
+
+    db.all('SELECT * FROM project_images ORDER BY sort_order ASC', [], (imgErr, allImages) => {
+      const imgMap = {};
+      (allImages || []).forEach(img => {
+        if (!imgMap[img.project_id]) imgMap[img.project_id] = [];
+        imgMap[img.project_id].push(img);
+      });
+      const enriched = rows.map(proj => {
+        let parsedImages = [];
+        if (proj.images) {
+          try {
+            const p = JSON.parse(proj.images);
+            if (Array.isArray(p)) parsedImages = p.map(u => ({ image_url: u }));
+          } catch (e) {}
+        }
+        const joinedImages = imgMap[proj.id] || [];
+        const uniqueImgMap = new Map();
+        [...joinedImages, ...parsedImages].forEach(item => {
+          const u = item?.image_url || (typeof item === 'string' ? item : '');
+          if (u && !uniqueImgMap.has(u)) {
+            uniqueImgMap.set(u, typeof item === 'object' ? item : { image_url: u });
+          }
+        });
+        const combined = Array.from(uniqueImgMap.values());
+        const existingImages = combined.filter(item => {
+          const u = item?.image_url;
+          if (!u) return false;
+          if (u.startsWith('http://') || u.startsWith('https://') || u.startsWith('data:')) return true;
+          const cleanPath = u.startsWith('/') ? u.slice(1) : u;
+          return fs.existsSync(path.join(projectRoot, cleanPath));
+        });
+        const firstValidImg = (existingImages.find(img => img.image_url) || {}).image_url || '';
+        let resolvedCover = '';
+        const rawCover = proj.cover_image || proj.image;
+        if (rawCover && rawCover !== '/house/completed-house.jpg' && !rawCover.includes('logo')) {
+          if (rawCover.startsWith('http://') || rawCover.startsWith('https://') || rawCover.startsWith('data:')) {
+            resolvedCover = rawCover;
+          } else {
+            const cleanPath = rawCover.startsWith('/') ? rawCover.slice(1) : rawCover;
+            if (fs.existsSync(path.join(projectRoot, cleanPath))) {
+              resolvedCover = rawCover;
+            }
+          }
+        }
+        if (!resolvedCover) {
+          resolvedCover = firstValidImg;
+        }
+
+        return {
+          ...proj,
+          cover_image: resolvedCover,
+          image: resolvedCover,
+          images: existingImages
+        };
+      });
+      res.json({ projects: enriched });
+    });
+  });
+});
+
+// GET single project by ID with categorized images
+router.get('/:id', (req, res) => {
+  db.get('SELECT * FROM projects WHERE id = ? OR project_id = ?', [req.params.id, req.params.id], (err, project) => {
+    if (err || !project) return res.status(404).json({ error: 'Project not found' });
+
+    db.all('SELECT * FROM project_images WHERE project_id = ? ORDER BY sort_order ASC', [project.id], (err, images) => {
+      let parsedImages = [];
+      if (project.images) {
+        try {
+          const p = JSON.parse(project.images);
+          if (Array.isArray(p)) parsedImages = p.map(u => ({ image_url: u }));
+        } catch (e) {}
+      }
+      const uniqueImgMap = new Map();
+      [...(images || []), ...parsedImages].forEach(item => {
+        const u = item?.image_url || (typeof item === 'string' ? item : '');
+        if (u && !uniqueImgMap.has(u)) {
+          uniqueImgMap.set(u, typeof item === 'object' ? item : { image_url: u });
+        }
+      });
+      const combined = Array.from(uniqueImgMap.values());
+      const firstValidImg = (combined.find(img => img.image_url) || {}).image_url || '';
+      const resolvedCover = (project.cover_image && project.cover_image !== '/house/completed-house.jpg' && !project.cover_image.includes('logo'))
+        ? project.cover_image
+        : ((project.image && project.image !== '/house/completed-house.jpg' && !project.image.includes('logo'))
+            ? project.image
+            : firstValidImg);
+
+      res.json({
+        project: {
+          ...project,
+          cover_image: resolvedCover,
+          image: resolvedCover,
+          images: combined
+        }
+      });
+    });
+  });
+});
+
+// POST Create new Project
+router.post('/', (req, res) => {
+  const body = req.body;
+  generateProjectId((autoId) => {
+    const projId = body.project_id || autoId;
+    const name = body.name || body.title || 'House Construction Project';
+    const title = body.title || name;
+    const project_type = body.project_type || 'Individual House';
+    const status = body.status || 'Completed';
+    const location = body.location || body.area || 'Poonamallee';
+    const cover_image = body.cover_image && body.cover_image !== '/house/completed-house.jpg' && !body.cover_image.includes('logo') ? body.cover_image : (body.image && body.image !== '/house/completed-house.jpg' && !body.image.includes('logo') ? body.image : '');
+    const imagesStr = typeof body.images === 'string' ? body.images : (Array.isArray(body.images) ? JSON.stringify(body.images) : '[]');
+
+    const sql = `
+      INSERT INTO projects (
+        project_id, name, title, project_type, status, address, area, city, pincode,
+        maps_url, latitude, longitude, plot_area, plot_area_unit, builtup_area, builtup_area_unit,
+        floors, bedrooms, bathrooms, start_date, expected_completion_date, actual_completion_date,
+        rcc_structure, concrete_roof, compound_wall, gate, parking, water_connection, electrical_work,
+        plumbing, painting, interior_work, overview, description, construction_details, special_features,
+        challenges, solutions, client_requirements, final_outcome, completion_date, cover_image, image, images,
+        published, featured, location
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    const params = [
+      projId, name, title, project_type, status, body.address || '', body.area || location, body.city || 'Chennai', body.pincode || '',
+      body.maps_url || '', body.latitude || '', body.longitude || '', body.plot_area || '', body.plot_area ? (body.plot_area_unit || 'sq.ft') : '', body.builtup_area || '', body.builtup_area ? (body.builtup_area_unit || 'sq.ft') : '',
+      body.floors || '', body.bedrooms || '', body.bathrooms || '', body.start_date || '', body.expected_completion_date || '', body.actual_completion_date || '',
+      body.rcc_structure ? 1 : 0, body.concrete_roof ? 1 : 0, body.compound_wall ? 1 : 0, body.gate ? 1 : 0, body.parking ? 1 : 0, body.water_connection ? 1 : 0, body.electrical_work ? 1 : 0,
+      body.plumbing ? 1 : 0, body.painting ? 1 : 0, body.interior_work ? 1 : 0, body.overview || '', body.description || '', body.construction_details || '', body.special_features || '',
+      body.challenges || '', body.solutions || '', body.client_requirements || '', body.final_outcome || '', body.completion_date || '', cover_image, cover_image, imagesStr,
+      body.published !== undefined ? (body.published ? 1 : 0) : 1, body.featured !== undefined ? (body.featured ? 1 : 0) : 0, location
+    ];
+
+    db.run(sql, params, function (err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ id: this.lastID, project_id: projId, message: 'Project created successfully' });
+    });
+  });
+});
+
+// PUT Update Project
+router.put('/:id', (req, res) => {
+  const body = req.body;
+  const id = req.params.id;
+
+  const sql = `
+    UPDATE projects SET
+      project_id = COALESCE(?, project_id),
+      name = COALESCE(?, name),
+      title = COALESCE(?, title),
+      project_type = COALESCE(?, project_type),
+      status = COALESCE(?, status),
+      address = COALESCE(?, address),
+      area = COALESCE(?, area),
+      city = COALESCE(?, city),
+      pincode = COALESCE(?, pincode),
+      maps_url = COALESCE(?, maps_url),
+      latitude = COALESCE(?, latitude),
+      longitude = COALESCE(?, longitude),
+      plot_area = COALESCE(?, plot_area),
+      plot_area_unit = COALESCE(?, plot_area_unit),
+      builtup_area = COALESCE(?, builtup_area),
+      builtup_area_unit = COALESCE(?, builtup_area_unit),
+      floors = COALESCE(?, floors),
+      bedrooms = COALESCE(?, bedrooms),
+      bathrooms = COALESCE(?, bathrooms),
+      start_date = COALESCE(?, start_date),
+      expected_completion_date = COALESCE(?, expected_completion_date),
+      actual_completion_date = COALESCE(?, actual_completion_date),
+      rcc_structure = COALESCE(?, rcc_structure),
+      concrete_roof = COALESCE(?, concrete_roof),
+      compound_wall = COALESCE(?, compound_wall),
+      gate = COALESCE(?, gate),
+      parking = COALESCE(?, parking),
+      water_connection = COALESCE(?, water_connection),
+      electrical_work = COALESCE(?, electrical_work),
+      plumbing = COALESCE(?, plumbing),
+      painting = COALESCE(?, painting),
+      interior_work = COALESCE(?, interior_work),
+      overview = COALESCE(?, overview),
+      description = COALESCE(?, description),
+      construction_details = COALESCE(?, construction_details),
+      special_features = COALESCE(?, special_features),
+      challenges = COALESCE(?, challenges),
+      solutions = COALESCE(?, solutions),
+      client_requirements = COALESCE(?, client_requirements),
+      final_outcome = COALESCE(?, final_outcome),
+      completion_date = COALESCE(?, completion_date),
+      cover_image = COALESCE(?, cover_image),
+      published = COALESCE(?, published),
+      featured = COALESCE(?, featured),
+      location = COALESCE(?, location),
+      updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `;
+
+  const params = [
+    body.project_id, body.name, body.title, body.project_type, body.status, body.address, body.area, body.city, body.pincode,
+    body.maps_url, body.latitude, body.longitude, body.plot_area, body.plot_area_unit, body.builtup_area, body.builtup_area_unit,
+    body.floors, body.bedrooms, body.bathrooms, body.start_date, body.expected_completion_date, body.actual_completion_date,
+    body.rcc_structure !== undefined ? (body.rcc_structure ? 1 : 0) : null,
+    body.concrete_roof !== undefined ? (body.concrete_roof ? 1 : 0) : null,
+    body.compound_wall !== undefined ? (body.compound_wall ? 1 : 0) : null,
+    body.gate !== undefined ? (body.gate ? 1 : 0) : null,
+    body.parking !== undefined ? (body.parking ? 1 : 0) : null,
+    body.water_connection !== undefined ? (body.water_connection ? 1 : 0) : null,
+    body.electrical_work !== undefined ? (body.electrical_work ? 1 : 0) : null,
+    body.plumbing !== undefined ? (body.plumbing ? 1 : 0) : null,
+    body.painting !== undefined ? (body.painting ? 1 : 0) : null,
+    body.interior_work !== undefined ? (body.interior_work ? 1 : 0) : null,
+    body.overview, body.description, body.construction_details, body.special_features,
+    body.challenges, body.solutions, body.client_requirements, body.final_outcome,
+    body.completion_date, body.cover_image,
+    body.published !== undefined ? (body.published ? 1 : 0) : null,
+    body.featured !== undefined ? (body.featured ? 1 : 0) : null,
+    body.location, id
+  ];
+
+  db.run(sql, params, function (err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ message: 'Project updated successfully', id });
+  });
+});
+
+// DELETE Project
+router.delete('/:id', (req, res) => {
+  const id = req.params.id;
+  db.get('SELECT cover_image, image FROM projects WHERE id = ?', [id], (err, projRow) => {
+    db.all('SELECT image_url FROM project_images WHERE project_id = ?', [id], async (err, imgRows) => {
+      if (projRow && projRow.cover_image) {
+        unlinkPhysicalProjectImage(projRow.cover_image);
+      }
+      if (projRow && projRow.image) {
+        unlinkPhysicalProjectImage(projRow.image);
+      }
+      if (Array.isArray(imgRows)) {
+        imgRows.forEach(r => {
+          if (r.image_url) unlinkPhysicalProjectImage(r.image_url);
+        });
+      }
+
+      db.run('DELETE FROM project_images WHERE project_id = ?', [id], () => {
+        db.run('DELETE FROM projects WHERE id = ?', [id], (err) => {
+          if (err) return res.status(500).json({ error: err.message });
+          res.json({ message: 'Project and associated image files deleted successfully' });
+        });
+      });
+    });
+  });
+});
+
+// CATEGORIZED MULTI-IMAGE UPLOAD for Project (categories: before, construction, progress, completed)
+router.post('/:id/images', upload.array('images', 20), async (req, res) => {
+  const projectId = req.params.id;
+  const category = req.body.category || 'completed';
+
+  if (!req.files || req.files.length === 0) {
+    return res.status(400).json({ error: 'No image files uploaded.' });
+  }
+
+  db.all('SELECT COUNT(*) as count FROM project_images WHERE project_id = ?', [projectId], async (err, rows) => {
+    const existingCount = rows[0]?.count || 0;
+    const insert = db.prepare('INSERT INTO project_images (project_id, image_url, category, caption, sort_order) VALUES (?, ?, ?, ?, ?)');
+
+    const uploadedImages = [];
+    for (let idx = 0; idx < req.files.length; idx++) {
+      const file = req.files[idx];
+      let imgUrl = `/uploads/images/projects/${file.filename}`;
+      if (process.env.BLOB_READ_WRITE_TOKEN) {
+        try {
+          const fileBuffer = fs.readFileSync(file.path);
+          const blobPath = `projects/${Date.now()}-${file.originalname}`;
+          const blobUrl = await uploadFileToBlob(blobPath, fileBuffer, file.mimetype || 'image/jpeg');
+          if (blobUrl) imgUrl = blobUrl;
+        } catch (e) {}
+      }
+      insert.run(projectId, imgUrl, category, req.body.caption || '', existingCount + idx);
+      uploadedImages.push({ image_url: imgUrl, category });
+
+      if (existingCount === 0 && idx === 0) {
+        db.run('UPDATE projects SET cover_image = ? WHERE id = ?', [imgUrl, projectId]);
+      }
+    }
+
+    insert.finalize((err) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ message: 'Project images uploaded successfully', images: uploadedImages });
+    });
+  });
+});
+
+// Helper function to safely delete physical image file from filesystem or Vercel Blob
+const unlinkPhysicalProjectImage = async (imageUrl) => {
+  if (!imageUrl || typeof imageUrl !== 'string' || imageUrl.startsWith('data:')) return;
+  if (imageUrl.includes('logo') || imageUrl.includes('completed-house')) return;
+
+  if (imageUrl.includes('vercel-storage.com') || imageUrl.includes('blob.vercel-storage.com')) {
+    await deleteFileFromBlob(imageUrl);
+    return;
+  }
+
+  const relativePath = imageUrl.startsWith('/') ? imageUrl.slice(1) : imageUrl;
+  const fullPath = path.join(projectRoot, relativePath);
+  const filename = path.basename(imageUrl);
+  const candidatePaths = [
+    fullPath,
+    path.join(projectRoot, 'uploads/images/projects', filename),
+    path.join(projectRoot, 'uploads/images', filename)
+  ];
+
+  candidatePaths.forEach((p) => {
+    try {
+      if (fs.existsSync(p) && fs.lstatSync(p).isFile()) {
+        fs.unlinkSync(p);
+        console.log(`[Project Image Delete] Removed physical file: ${p}`);
+      }
+    } catch (e) {
+      console.error(`[Project Image Delete] Warning removing file ${p}:`, e.message);
+    }
+  });
+};
+
+// DELETE image directly from form (acts on physical filesystem & showcase.db)
+router.post('/delete-image', (req, res) => {
+  const { projectId, imageUrl, imageId } = req.body;
+  if (!imageUrl && !imageId) {
+    return res.status(400).json({ error: 'imageUrl or imageId is required' });
+  }
+
+  // 1. Delete physical file from filesystem
+  if (imageUrl) {
+    unlinkPhysicalProjectImage(imageUrl);
+  }
+
+  // 2. Delete from showcase.db database
+  db.serialize(() => {
+    if (imageId) {
+      db.get('SELECT image_url FROM project_images WHERE id = ?', [imageId], (err, row) => {
+        if (row?.image_url) unlinkPhysicalProjectImage(row.image_url);
+        db.run('DELETE FROM project_images WHERE id = ?', [imageId]);
+      });
+    }
+
+    if (imageUrl) {
+      db.run('DELETE FROM project_images WHERE image_url = ?', [imageUrl]);
+    }
+
+    if (projectId) {
+      db.get('SELECT cover_image, image, images FROM projects WHERE id = ?', [projectId], (err, projRow) => {
+        if (projRow) {
+          let updatedImagesArr = [];
+          if (projRow.images) {
+            try {
+              const arr = JSON.parse(projRow.images);
+              if (Array.isArray(arr)) {
+                updatedImagesArr = arr.filter(u => u !== imageUrl);
+              }
+            } catch (e) {}
+          }
+          const newImagesJson = JSON.stringify(updatedImagesArr);
+          db.get(
+            'SELECT image_url FROM project_images WHERE project_id = ? AND image_url != ? ORDER BY sort_order ASC, id ASC LIMIT 1',
+            [projectId, imageUrl],
+            (err, nextImg) => {
+              const currentCover = projRow.cover_image || projRow.image;
+              const newCover = (currentCover && currentCover !== imageUrl)
+                ? currentCover
+                : (nextImg?.image_url || updatedImagesArr[0] || '');
+              db.run('UPDATE projects SET cover_image = ?, image = ?, images = ? WHERE id = ?', [newCover, newCover, newImagesJson, projectId]);
+            }
+          );
+        }
+      });
+    }
+  });
+
+  return res.json({ success: true, message: 'Project image deleted from physical disk and showcase.db' });
+});
+
+// SYNC & REORDER all Project Images
+router.put('/:id/images/sync', (req, res) => {
+  const paramId = req.params.id;
+  const { images } = req.body;
+  if (!Array.isArray(images)) {
+    return res.status(400).json({ error: 'images must be an array of URLs' });
+  }
+
+  db.get('SELECT id FROM projects WHERE id = ? OR project_id = ?', [paramId, paramId], (lookupErr, projectRow) => {
+    if (lookupErr || !projectRow) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+    const realProjectId = projectRow.id;
+    const uniqueImages = [];
+    const seen = new Set();
+    images.forEach(u => {
+      if (u && typeof u === 'string' && u.trim() && !seen.has(u.trim())) {
+        seen.add(u.trim());
+        uniqueImages.push(u.trim());
+      }
+    });
+    const imagesJson = JSON.stringify(uniqueImages);
+
+    db.run('DELETE FROM project_images WHERE project_id = ?', [realProjectId], (delErr) => {
+      if (delErr) console.error('Error clearing old project images:', delErr);
+      if (uniqueImages.length > 0) {
+        const stmt = db.prepare('INSERT INTO project_images (project_id, image_url, category, sort_order) VALUES (?, ?, ?, ?)');
+        uniqueImages.forEach((url, idx) => {
+          stmt.run(realProjectId, url, 'completed', idx);
+        });
+        stmt.finalize();
+        db.run('UPDATE projects SET cover_image = ?, image = ?, images = ? WHERE id = ?', [uniqueImages[0], uniqueImages[0], imagesJson, realProjectId]);
+      } else {
+        db.run('UPDATE projects SET cover_image = ?, image = ?, images = ? WHERE id = ?', ['', '', '[]', realProjectId]);
+      }
+      res.json({ message: 'Project images synchronized successfully', total: uniqueImages.length });
+    });
+  });
+});
+
+export default router;

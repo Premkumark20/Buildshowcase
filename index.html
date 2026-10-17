@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="./logo/sk-builders-logo.png" />
+    <link rel="apple-touch-icon" href="./logo/sk-builders-logo.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SK BUILDERS & PROPERTY CONSULTANT</title>
+    <meta name="description" content="Builder & Property Consultant in Poonamallee, Mangadu & Kundrathur. Houses for sale, residential land, contract construction, and property guidance." />
+    
+    <!-- OpenGraph / WhatsApp / Social Media Link Previews -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="SK BUILDERS & PROPERTY CONSULTANT" />
+    <meta property="og:title" content="SK BUILDERS & PROPERTY CONSULTANT" />
+    <meta property="og:description" content="Builder & Property Consultant. Houses for sale, residential land, contract construction, and property guidance." />
+    <meta property="og:image" content="https://buildshowcase.vercel.app/logo/sk-builders-logo.png" />
+    <meta property="og:url" content="https://buildshowcase.vercel.app/" />
+    
+    <!-- Twitter Cards -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="SK BUILDERS & PROPERTY CONSULTANT" />
+    <meta name="twitter:description" content="Builder & Property Consultant. Houses for sale, residential land, contract construction, and property guidance." />
+    <meta name="twitter:image" content="https://buildshowcase.vercel.app/logo/sk-builders-logo.png" />
+    <!-- PWA & Mobile Installation Manifest -->
+    <link rel="manifest" id="app-manifest" href="/manifest-main.json" />
+    <script>
+      (function() {
+        try {
+          var isAdmin = window.location.pathname.indexOf('/admin') !== -1 || window.location.hash.indexOf('admin') !== -1;
+          var manifestTag = document.getElementById('app-manifest');
+          if (manifestTag && isAdmin) {
+            manifestTag.setAttribute('href', '/manifest-admin.json');
+          }
+          if (isAdmin) {
+            var appTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+            if (appTitle) appTitle.setAttribute('content', 'Admin Portal');
+            var appName = document.querySelector('meta[name="application-name"]');
+            if (appName) appName.setAttribute('content', 'Admin Portal');
+          }
+        } catch(e) {}
+      })();
+    </script>
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="SK BUILDERS" />
+    <meta name="application-name" content="SK BUILDERS" />
+
+    <meta name="theme-color" content="#09090b" />
+    <meta name="color-scheme" content="dark" />
+    
+    <!-- Instant dark canvas to eliminate white flash on refresh -->
+    <style>
+      html, body {
+        background-color: #09090b !important;
+        background: #09090b !important;
+        color: #f4f4f5;
+        margin: 0;
+        padding: 0;
+      }
+      #root {
+        background-color: #09090b;
+        min-height: 100vh;
+      }
+    </style>
+  </head>
+  <body style="background-color: #09090b !important; background: #09090b !important; color: #f4f4f5; margin: 0;">
+    <div id="root"></div>
+    <script type="module" src="/app/src/main.jsx"></script>
+  </body>
+</html>
