@@ -22,7 +22,24 @@
     <meta name="twitter:description" content="Builder & Property Consultant. Houses for sale, residential land, contract construction, and property guidance." />
     <meta name="twitter:image" content="https://buildshowcase.vercel.app/logo/sk-builders-logo.png" />
     <!-- PWA & Mobile Installation Manifest -->
-    <link rel="manifest" id="app-manifest" href="/Buildshowcase/manifest.json" />
+    <link rel="manifest" id="app-manifest" href="/Buildshowcase/manifest-main.json" />
+    <script>
+      (function() {
+        try {
+          var isAdmin = window.location.pathname.indexOf('/admin') !== -1 || window.location.hash.indexOf('admin') !== -1;
+          var manifestTag = document.getElementById('app-manifest');
+          if (manifestTag && isAdmin) {
+            manifestTag.setAttribute('href', '/manifest-admin.json');
+          }
+          if (isAdmin) {
+            var appTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+            if (appTitle) appTitle.setAttribute('content', 'Admin Portal');
+            var appName = document.querySelector('meta[name="application-name"]');
+            if (appName) appName.setAttribute('content', 'Admin Portal');
+          }
+        } catch(e) {}
+      })();
+    </script>
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -46,7 +63,7 @@
         min-height: 100vh;
       }
     </style>
-    <script type="module" crossorigin src="/Buildshowcase/assets/index-BosPcuEV.js"></script>
+    <script type="module" crossorigin src="/Buildshowcase/assets/index-tZX9bdz7.js"></script>
     <link rel="modulepreload" crossorigin href="/Buildshowcase/assets/reactVendor-DOnTjJp2.js">
     <link rel="modulepreload" crossorigin href="/Buildshowcase/assets/animVendor-CIZWo3Lg.js">
     <link rel="stylesheet" crossorigin href="/Buildshowcase/assets/index-D8d-HrT_.css">

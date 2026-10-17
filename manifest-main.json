@@ -4,7 +4,7 @@
   "description": "Builder & Property Consultant - Houses, Lands & Construction Showcase",
   "start_url": "/",
   "scope": "/",
-  "id": "/?pwa=main",
+  "id": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#09090b",
@@ -40,12 +40,6 @@
       "name": "Submit Feedback",
       "short_name": "Feedback",
       "url": "/feedback",
-      "icons": [{ "src": "/logo/sk-builders-logo.png", "sizes": "192x192" }]
-    },
-    {
-      "name": "Admin Portal",
-      "short_name": "Admin",
-      "url": "/admin",
       "icons": [{ "src": "/logo/sk-builders-logo.png", "sizes": "192x192" }]
     }
   ]

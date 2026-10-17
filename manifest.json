@@ -1,9 +1,10 @@
 {
-  "name": "SK BUILDERS & PROPERTY CONSULTANT",
+  "name": "SK BUILDERS",
   "short_name": "SK BUILDERS",
-  "description": "SK BUILDERS & PROPERTY CONSULTANT - Builder & Property Consultant Admin Portal",
-  "start_url": "/#admin",
+  "description": "Builder & Property Consultant - Houses, Lands & Construction Showcase",
+  "start_url": "/",
   "scope": "/",
+  "id": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#09090b",
@@ -20,6 +21,26 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Houses for Sale",
+      "short_name": "Houses",
+      "url": "/all-properties",
+      "icons": [{ "src": "/logo/sk-builders-logo.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Residential Land",
+      "short_name": "Land",
+      "url": "/all-properties",
+      "icons": [{ "src": "/logo/sk-builders-logo.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Submit Feedback",
+      "short_name": "Feedback",
+      "url": "/feedback",
+      "icons": [{ "src": "/logo/sk-builders-logo.png", "sizes": "192x192" }]
     }
   ]
 }
