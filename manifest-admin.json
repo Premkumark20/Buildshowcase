@@ -1,0 +1,40 @@
+{
+  "name": "SK BUILDERS Admin Portal",
+  "short_name": "Admin Portal",
+  "description": "SK BUILDERS - Admin Management & Real-Time Lead Alerts",
+  "start_url": "/admin",
+  "scope": "/",
+  "id": "/admin?pwa=admin",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#09090b",
+  "theme_color": "#09090b",
+  "icons": [
+    {
+      "src": "/logo/sk-builders-logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo/sk-builders-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Leads & Enquiries",
+      "short_name": "Leads",
+      "url": "/admin#leads",
+      "icons": [{ "src": "/logo/sk-builders-logo.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Admin Settings",
+      "short_name": "Settings",
+      "url": "/admin#settings",
+      "icons": [{ "src": "/logo/sk-builders-logo.png", "sizes": "192x192" }]
+    }
+  ]
+}
